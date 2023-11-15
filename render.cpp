@@ -5,7 +5,18 @@
 
 using namespace std;
 
+// FIX ADDING SPACES AT THE END OF A PARAGRAPH
+void checkPunctuation(char word[], int& count, int lineLength){
+    if(word[strlen(word) - 1] == '.' || word[strlen(word) - 1] == '?' || word[strlen(word) - 1] == '!' || word[strlen(word) - 1] == ':'){
+        if(count + 1 < lineLength){
+            strcat(word, " ");
+            count++;
+        }
+    }
+}
+
 void printWords(char word[], int& count, bool& firstWordInLine, int lineLength, ostream& outf, bool& pBreak){
+    checkPunctuation(word, count, lineLength);
     // paragraph break
     if(strcmp(word, "@P@") == 0){
         if(!pBreak){
