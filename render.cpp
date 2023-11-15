@@ -5,18 +5,7 @@
 
 using namespace std;
 
-// FIX ADDING SPACES AT THE END OF A PARAGRAPH
-void checkPunctuation(char word[], int& count, int lineLength){
-    if(word[strlen(word) - 1] == '.' || word[strlen(word) - 1] == '?' || word[strlen(word) - 1] == '!' || word[strlen(word) - 1] == ':'){
-        if(count + 1 < lineLength){
-            strcat(word, " ");
-            count++;
-        }
-    }
-}
-
-void printWords(char word[], int& count, bool& firstWordInLine, int lineLength, ostream& outf, bool& pBreak){
-    checkPunctuation(word, count, lineLength);
+void printWord(char word[], int& count, bool& firstWordInLine, int lineLength, ostream& outf, bool& pBreak, bool &hasPunc){
     // paragraph break
     if(strcmp(word, "@P@") == 0){
         if(!pBreak){
@@ -32,6 +21,11 @@ void printWords(char word[], int& count, bool& firstWordInLine, int lineLength, 
         firstWordInLine = false;
         pBreak = false;
     }
+    else if(hasPunc && count + 2 < lineLength){
+        outf << "  " << word;
+        count += 2;
+        pBreak = false;
+    }
     // if the word can fit in the current line, print it
     else if(count + 1 < lineLength){
         outf << " " << word;
@@ -42,6 +36,12 @@ void printWords(char word[], int& count, bool& firstWordInLine, int lineLength, 
     else if(firstWordInLine && strlen(word) == lineLength){
         outf << word << endl;
         count = 0;
+        pBreak = false;
+    }
+    else if(hasPunc && count + 2 == lineLength){
+        outf << "  " << word << endl;
+        count = 0;
+        firstWordInLine = true;
         pBreak = false;
     }
     // if the word perfectly completes the line, print a new line
@@ -58,6 +58,13 @@ void printWords(char word[], int& count, bool& firstWordInLine, int lineLength, 
         count += strlen(word);
         pBreak = false;
     }
+    // checks if the word has punctuation; if so, appends a space for before the next word
+    if(word[strlen(word) - 1] == '.' || word[strlen(word) - 1] == '?' || word[strlen(word) - 1] == '!' || word[strlen(word) - 1] == ':'){
+        hasPunc = true;
+    }
+    else{
+        hasPunc = false;
+    }
     // reset word
     for(int i = 0; word[i] != '\0'; i++){
         word[i] = '\0';
@@ -72,6 +79,7 @@ int render(int lineLength, istream& inf, ostream& outf){
     int count = 0;
     bool firstWordInLine = true;
     bool pBreak = false;
+    bool hasPunc = false;
     while(inf.get(c)){ // read in one char at a time
         if(!isspace(c)){
             word[strlen(word)] = c; // append char c to the current word
@@ -79,10 +87,10 @@ int render(int lineLength, istream& inf, ostream& outf){
         }
         else{
             if(strlen(word) != 0)
-                printWords(word, count, firstWordInLine, lineLength, outf, pBreak);
+                printWord(word, count, firstWordInLine, lineLength, outf, pBreak, hasPunc);
         }
     }
-    printWords(word, count, firstWordInLine, lineLength, outf, pBreak); // print the last word (it is not printed in the loop because our loop only prints after it reaches a space character)
+    printWord(word, count, firstWordInLine, lineLength, outf, pBreak, hasPunc); // print the last word (it is not printed in the loop because our loop only prints after it reaches a space character)
     outf << endl;
     return 0;
 }
