@@ -5,10 +5,10 @@
 
 using namespace std;
 
-void printWord(char word[], int& count, bool& firstWordInLine, int lineLength, ostream& outf, bool& pBreak, bool &hasPunc){
+void printWord(char word[], int& count, bool& firstWordInLine, int lineLength, ostream& outf, bool& pBreak, bool &hasPunc, bool firstWord){
     // paragraph break
     if(strcmp(word, "@P@") == 0){
-        if(!pBreak){
+        if(!pBreak && !firstWord){
             outf << endl << endl;
             count = 0;
             firstWordInLine = true;
@@ -65,19 +65,16 @@ void printWord(char word[], int& count, bool& firstWordInLine, int lineLength, o
     else{
         hasPunc = false;
     }
-    // reset word
-    for(int i = 0; word[i] != '\0'; i++){
-        word[i] = '\0';
-    }
 }
 
 int render(int lineLength, istream& inf, ostream& outf){
     if(lineLength < 1)
         return 2;
     char c;
-    char word[181];
+    char word[181] = "";
     int count = 0;
     bool firstWordInLine = true;
+    bool firstWord = true;
     bool pBreak = false;
     bool hasPunc = false;
     while(inf.get(c)){ // read in one char at a time
@@ -86,38 +83,32 @@ int render(int lineLength, istream& inf, ostream& outf){
             count++;
         }
         else{
-            if(strlen(word) != 0)
-                printWord(word, count, firstWordInLine, lineLength, outf, pBreak, hasPunc);
+            if(strlen(word) != 0){
+                printWord(word, count, firstWordInLine, lineLength, outf, pBreak, hasPunc, firstWord);
+                // reset word
+                for(int i = 0; word[i] != '\0'; i++){
+                    word[i] = '\0';
+                }
+            }
+            firstWord = false;
         }
     }
-    printWord(word, count, firstWordInLine, lineLength, outf, pBreak, hasPunc); // print the last word (it is not printed in the loop because our loop only prints after it reaches a space character)
+    if(strcmp(word, "@P@") != 0)
+        printWord(word, count, firstWordInLine, lineLength, outf, pBreak, hasPunc, firstWord); // print the last word (it is not printed in the loop because our loop only prints after it reaches a space character) **/
     outf << endl;
     return 0;
 }
 
 int main(){
-    const int MAX_FILENAME_LENGTH = 100;
-    for (;;)
+    ifstream infile("/Users/rachel/Desktop/input.txt");
+    if (!infile)
     {
-        cout << "Enter input file name (or q to quit): ";
-        char filepath [MAX_FILENAME_LENGTH + 22];
-        strcat(filepath, "/Users/rachel/Desktop/");
-        char filename [MAX_FILENAME_LENGTH];
-        cin.getline(filename, MAX_FILENAME_LENGTH);
-        if (strcmp(filename, "q") == 0)
-            break;
-        strcat(filepath, filename);
-        ifstream infile(filepath);
-        if (!infile)
-        {
-            cerr << "Cannot open " << filename << "!" << endl;
-            continue;
-        }
-        cout << "Enter maximum line length: ";
-        int len;
-        cin >> len;
-        cin.ignore(10000, '\n');
-        int returnCode = render(len, infile, cout);
-        cout << "Return code is " << returnCode << endl;
+        cerr << "Cannot open input.txt!" << endl;
     }
+    cout << "Enter maximum line length: ";
+    int len;
+    cin >> len;
+    cin.ignore(10000, '\n');
+    int returnCode = render(len, infile, cout);
+    cout << "Return code is " << returnCode << endl;
 }
