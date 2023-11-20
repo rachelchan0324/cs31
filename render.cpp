@@ -5,16 +5,15 @@
 #include <fstream>
 #include <cstring>
 #include <cctype>
-
 #include <cassert>
 #include <streambuf>
 #include <sstream>
-
 using namespace std;
 
 void printWordPortions(char word[], int& count, bool& firstWordInLine, int& lineLength, ostream& outf, bool& pBreak, bool& hasPunc, bool& firstWord, bool& printingWordPortions, bool& returnOne, bool& firstWordPortion, bool& justPerfectlyCompletedALine);
 
 bool moreThanOneWordPortion(char word[]){
+    // determines if a word has more than one word portion by checking if any of the chars are a '-'
     for(int i = 0; word[i] != '\0'; i++){
         if(word[i] == '-')
             return true;
@@ -24,25 +23,29 @@ bool moreThanOneWordPortion(char word[]){
 
 void printWord(char word[], int& count, bool& firstWordInLine, int& lineLength, ostream& outf, bool& pBreak, bool& hasPunc, bool& firstWord, bool& printingWordPortions, bool& returnOne, bool& firstWordPortion, bool& justPerfectlyCompletedALine){
     
-    if(printingWordPortions || strcmp(word, "@P@") != 0)
+    // @P@ does not have length and is not considered a word UNLESS it is a word-portion
+    if(strcmp(word, "@P@") != 0 || printingWordPortions)
         count += strlen(word);
     
+    // determines how many spaces we need to prepend before printing our current word
     int prependSpaces = 1;
-    if(printingWordPortions){
+    if(printingWordPortions){ // word portions shouldn't have spaces before them EXCEPT if its the first word portion
         if(!firstWordPortion)
             prependSpaces = 0;
-    }
+        else
+            prependSpaces = 1;
+    } // if our previous word has punctuation, we prepend 2 spaces
     if(hasPunc){
         prependSpaces = 2;
     }
     if(firstWordInLine)
         prependSpaces = 0;
     
-    // prepend the paragraph break from the previous token
+    // prepend the paragraph break from the previous token UNLESS the current word is also a paragraph break (we ignore consecutive paragraph breaks and only print the LAST paragraph break)
     if(pBreak && strcmp(word, "@P@") != 0){
-        if(justPerfectlyCompletedALine){
+        // if we just completed a line, then one of the new lines is already printed
+        if(justPerfectlyCompletedALine)
             outf << endl;
-        }
         else
             outf << endl << endl;
         firstWordInLine = true;
@@ -51,15 +54,16 @@ void printWord(char word[], int& count, bool& firstWordInLine, int& lineLength, 
 
     if(!printingWordPortions && strcmp(word, "@P@") == 0){
         if(firstWord){
-            // do nothing
+            // a paragraph break cannot be the first thing printed
         }
         else{
+            // marks pBreak as true, so a new line will be prepended to the next token
+            firstWordInLine = true;
             pBreak = true;
             count = 0;
-            firstWordInLine = true;
         }
     }
-    // can fit in the current line
+    // the current word and the prepended spaces CAN fit in the current line
     else if(count + prependSpaces < lineLength){
         for(int i = 0; i < prependSpaces; i++)
             outf << " ";
@@ -68,7 +72,7 @@ void printWord(char word[], int& count, bool& firstWordInLine, int& lineLength, 
         firstWordInLine = false;
         justPerfectlyCompletedALine = false;
     }
-    // perfectly completes the current line; start a new line
+    // the current word and the prepended spaces PERFECTLY completes the current line: start a new line
     else if(count + prependSpaces == lineLength){
         for(int i = 0; i < prependSpaces; i++)
             outf << " ";
@@ -77,35 +81,33 @@ void printWord(char word[], int& count, bool& firstWordInLine, int& lineLength, 
         justPerfectlyCompletedALine = true;
         firstWordInLine = true;
     }
-    // the word will not fit in the current line
+    // the current word and the prepended spaces will NOT fit in the current line
     else{
-        // includes hyphens
-        if(!printingWordPortions && moreThanOneWordPortion(word)){
-            count -= strlen(word);
+        // splits the word into different word portions if the word contains a hyphen
+        if(moreThanOneWordPortion(word) && !printingWordPortions){
+            count -= strlen(word); // we never printed out word (in its entirety), so subtract its length from the count
             printingWordPortions = true;
             firstWordPortion = true;
             printWordPortions(word, count, firstWordInLine, lineLength, outf, pBreak, hasPunc,firstWord, printingWordPortions, returnOne, firstWordPortion, justPerfectlyCompletedALine);
         }
-        // overflow
+        // the word portion is greater than the maxLength: set returnOne to true and print as much as will fit on a new line
         else if(strlen(word) > lineLength){
-            if(!firstWordInLine){
-                outf << endl;
-            }
-            count = 0;
             returnOne = true;
-            int charsPrint = lineLength - count;
-            for(int i = 0; i < charsPrint; i++)
-                outf << word[i];
+            if(!firstWordInLine)
+                outf << endl;
+            int charsToPrint = lineLength;
+            for(int i = 0; i < charsToPrint; i++)
+                outf << word[i]; // print as much as will fit on a new line
             outf << endl;
             firstWordInLine = true;
             count = 0;
             char overflow[180] = "";
-            for(int i = charsPrint; i < strlen(word); i++)
+            // create a new cstring containing the remaining characters and pass it back into printWord()
+            for(int i = charsToPrint; i < strlen(word); i++)
                 overflow[strlen(overflow)] = word[i];
             printWord(overflow, count, firstWordInLine, lineLength, outf, pBreak, hasPunc, firstWord, printingWordPortions, returnOne, firstWordPortion, justPerfectlyCompletedALine);
         }
-        // print a new line and print the word in the next line
-        else{
+        else{ // current word doesn't fit on current line --> print a new line and print the word in the next line
             outf << endl << word;
             count = int(strlen(word));
             firstWordInLine = false;
@@ -113,6 +115,7 @@ void printWord(char word[], int& count, bool& firstWordInLine, int& lineLength, 
         }
     }
     hasPunc = false;
+    // just finished printing a word, so firstWord is false UNLESS firstWord is @P@ (in which case the paragraph break is ignored)
     if(firstWord && strcmp(word, "@P@") != 0)
         firstWord = false;
     // checks if the word has punctuation: if so, hasPunc turns true and will prepend 2 spaces in the next token
@@ -122,89 +125,72 @@ void printWord(char word[], int& count, bool& firstWordInLine, int& lineLength, 
 
 void printWordPortions(char word[], int& count, bool& firstWordInLine, int& lineLength, ostream& outf, bool& pBreak, bool& hasPunc, bool& firstWord, bool& printingWordPortions, bool& returnOne, bool& firstWordPortion, bool& justPerfectlyCompletedALine){
     
-    int portioncount = 0;
+    int wordcount = 0; // stores the number of characters we have already printed from the word
     char portion[180] = "";
     
-    while(portioncount < strlen(word)){
+    while(wordcount < strlen(word)){
         int i;
-        for(i = 0; word[portioncount + i] != '\0'; i++){
-            portion[strlen(portion)] = word[portioncount + i];
+        // identifies the next word portion by starting at index wordcount and appending chars from word until the for-loop reaches a '-' (inclusive) or '\0'
+        for(i = 0; word[wordcount + i] != '\0'; i++){
+            portion[strlen(portion)] = word[wordcount + i];
             if(portion[strlen(portion) - 1] == '-')
                 break;
         }
-        portioncount += i + 1;
+        wordcount += i + 1;
         printWord(portion, count, firstWordInLine, lineLength, outf, pBreak, hasPunc, firstWord, printingWordPortions, returnOne, firstWordPortion, justPerfectlyCompletedALine);
-        firstWordPortion = false;
+        if(firstWordPortion)
+            firstWordPortion = false; // just printed a word portion in the previous line, so firstWordPortion becomes false
         // reset wordportion in preperation for the next wordportion
         for(int i = 0; portion[i] != '\0'; i++){
             portion[i] = '\0';
         }
     }
-    printingWordPortions = false;
+    printingWordPortions = false; // finish printing all word portions so printingWordPortions becomes false
 }
 
 int render(int lineLength, istream& inf, ostream& outf){
+    // if line length is less than 1: error --> return 1
     if(lineLength < 1)
         return 2;
     char c;
-    char word[180] = "";
+    char word[180] = ""; // stores the current word we are printing
+    int count = 0; // stores the number of characters already printed in the current line
     
-    int count = 0;
+    // boolean values that represent unique edge cases for our algorithm
     bool firstWordInLine = true;
-    // bool so @P@ doesn't print if it is the first token
     bool firstWord = true;
     bool pBreak = false;
     bool hasPunc = false;
     bool printingWordPortions = false;
     bool firstWordPortion = false;
+    bool justPerfectlyCompletedALine = false; // used for printing pbreaks; if the word perfectly completed the preceding line, then only print 1 new line (not 2)
     bool returnOne = false;
-    bool justPerfectlyCompletedALine = false; // for pbreaks: if the word perfectly completed the preceding line, then only prine 1 new line (not 2)
     
+    // reads the text file char by char
     while(inf.get(c)){
         if(!isspace(c)){
-            word[strlen(word)] = c;
+            word[strlen(word)] = c; // append the chars to word[] until the program hits a space
         }
         else if(strlen(word) != 0){
+            // the program hits a space; now, we have stored all the chars to word[] and it is time to print
             printWord(word, count, firstWordInLine, lineLength, outf, pBreak, hasPunc, firstWord, printingWordPortions, returnOne, firstWordPortion, justPerfectlyCompletedALine);
-            if(strcmp(word, "@P@") != 0){
-                firstWord = false;
-            }
             // reset word
             for(int i = 0; word[i] != '\0'; i++){
                 word[i] = '\0';
             }
         }
     }
+    // print the last token (our last token is not printed in our while loop because it only prints the word AFTER hitting a space but our input doesn't necessarily have to end with a space) UNLESS the token is a space or paragraph break
     if(strcmp(word, "@P@") != 0 && strlen(word) != 0)
-        // print the last token
         printWord(word, count, firstWordInLine, lineLength, outf, pBreak, hasPunc, firstWord, printingWordPortions, returnOne, firstWordPortion, justPerfectlyCompletedALine);
+    
+    // print a new line at the end of the output UNLESS justPerfectlyCompeltedALine (already printed a newline at the end) or firstWord is true (no output was printed at all our output file should have nothing)
     if(!justPerfectlyCompletedALine && !firstWord)
         outf << endl;
     if(returnOne)
         return 1;
     return 0;
 }
-
-/** void testRender(int lineLength, const char input[], const char expectedOutput[], int expectedReturnValue)
-{
-    istringstream iss(input);
-    ostringstream oss;
-    ostringstream dummy;
-    streambuf* origCout = cout.rdbuf(dummy.rdbuf());
-    int retval = render(lineLength, iss, oss);
-    cout.rdbuf(origCout);
-    if ( ! dummy.str().empty())
-        cerr << "WROTE TO COUT INSTEAD OF THIRD PARAMETER FOR: " << input << endl;
-    else if (retval != expectedReturnValue)
-        cerr << "WRONG RETURN VALUE FOR: " << input << endl;
-    else if (retval == 2)
-    {
-        if ( ! oss.str().empty())
-            cerr << "WROTE OUTPUT WHEN LINELENGTH IS " << lineLength << endl;
-    }
-    else if (oss.str() != expectedOutput)
-        cerr << "WRONG RESULT FOR: " << input << endl;
-} */
 
 bool testRender(int lineLength, const char input[], const char expectedOutput[], int expectedReturnValue) {
     istringstream iss(input);
@@ -237,7 +223,7 @@ int main(){
     testRender(8, "  This is a test  \n", "This is\na test\n", 0);
     testRender(6, "Testing it\n", "Testin\ng it\n", 1);
     testRender(-5, "irrelevant", "irrelevant", 2);
-    cerr << "Tests complete" << endl;
+    testRender(40, "It always does seem to me that I am doing more work than\nI should do. It is not that I object to the work, mind you;\nI like work: it fascinates me.       I can sit and look at it for hours.\nI love to keep     it by me: the idea of getting\nrid\nof it nearly breaks my heart. @P@ You cannot give me too\nmuch work; to accumulate work has almost become\na passion with me: my study is so full of it now, that there is hardly\nan inch of room for any more.", "It always does seem to me that I am\ndoing more work than I should do.  It is\nnot that I object to the work, mind you;\nI like work:  it fascinates me.  I can\nsit and look at it for hours.  I love to\nkeep it by me:  the idea of getting rid\nof it nearly breaks my heart.\n\nYou cannot give me too much work; to\naccumulate work has almost become a\npassion with me:  my study is so full of\nit now, that there is hardly an inch of\nroom for any more.\n", 0);
     
     // Andrew's Test Cases
     assert(testRender(0, "Hello", "", 2)); // max length can't be 0
@@ -293,28 +279,49 @@ int main(){
     assert(testRender(6, "Testing it\n", "Testin\ng it\n", 1));
     assert(testRender(-5, "irrelevant", "irrelevant", 2));
     
-    // Rachel's Test Cases
-    
-    // MARK: Error Cases
-    testRender(8, "", "", 0); // no leading paragraph breaks
-    
-    // MARK: Simple Plain Text
-    
-    // MARK: Punctuation
-    
-    // MARK: Paragraph Breaks
+    // Rachel's Test Case
+    testRender(10, "\n", "", 0); // input is empty line
+    testRender(10, " ", "", 0); // input is empty space
+    // Error Cases
+    testRender(3, "one two three", "one\ntwo\nthr\nee\n", 1); // input word longer than max length
+    testRender(6, "hello-there and good-bye", "hello-\nthere\nand\ngood-\nbye\n", 0); // input word longer than max length but individual word portions are not
+    testRender(4, "hello-you\n\ngoodbye-you", "hell\no-\nyou\ngood\nbye-\nyou\n", 1); // word portions are longer than max length
+    testRender(0, "boo!", "", 2); // desired maximum length is < 1
+    // Punctuation
+    testRender(10, "!", "!\n", 0); // input is a singular punctuation mark
+    testRender(6, ".?!:", ".?!:\n", 0); // ends and starts with a punctuation mark (should not have spaces at beginning or the end)
+    testRender(6, ". ? ! : ", ".  ?\n!  :\n", 0); // testing all punctuation marks specified in the spec
+    // Paragraph Breaks
+    testRender(10, "@P@", "", 0); // input is a paragraph break
+    testRender(12, ".banjo@P@.", ".banjo@P@.\n", 0); // paragraph break is incorporated in a word (does not count!)
     testRender(6, "@P@ Hello @P@ Bye @P@", "Hello\n\nBye\n", 0); // leading and ending paragraph breaks
     testRender(6, "@P@@P@", "@P@@P@\n", 0); // @P@@P@ should be treated as a word, not a paragraph break
     testRender(4, "@P@ @P@ @P@ @P@", "", 0); // contains only repeated paragraph breaks
     testRender(2, "hi @P@ hi", "hi\n\nhi\n", 0); // @P@ should have no length
-    
-    // MARK: Hyphen
+    testRender(3, "@P@-@P@", "@P@\n-\n@P@\n", 1); // @P@ should be treated as a word portion, not a word
+    testRender(10, "hi\n\n@P@ bye", "hi\n\nbye\n", 0); // paragraph break with new lines
+    // Hyphen
+    testRender(10, "-", "-\n", 0); // input is a hyphen
+    testRender(10, "hi!--!-december", "hi!--!-\ndecember\n", 0); // punctuation included inside word portion
+    testRender(2, "---------", "--\n--\n--\n--\n-\n", 0); // input has consecutive hyphens
+    testRender(3, "-a-a-a-a-a", "-a-\na-\na-\na-a\n", 0); // input is a large word portion with multiple hyphens
     testRender(10, "Thames so-called Henley-on-Thames so--called so- -so", "Thames so-\ncalled\nHenley-on-\nThames so-\n-called\nso- -so\n", 0); //  includes all pathological examples of word portions from smallberg's spec
-    testRender(20, "Here's a wild mix of dashes-connecting ideas in a jumble-making a merry mess-of words and thoughts-like a crazy puzzle-full of dashes-jumping around-just for fun!", "Here's a wild mix of\ndashes-connecting\nideas in a jumble-\nmaking a merry mess-\nof words and\nthoughts-like a\ncrazy puzzle-full of\ndashes-jumping\naround-just for fun!\n", 0); // word portions
-    testRender(6, "@P@ @P@ @P@\n\neric-chou\nhello\n@P@\nalsdjf-j--j\nsevens-fives\nhi fives\n\n\n@P@\nfives-bye\n\n\n", "eric-\nchou\nhello\n\nalsdjf\n-j--j\nsevens\n-fives\nhi\nfives\n\nfives-\nbye\n", 1); // word portions AND paragraph breaks
+    testRender(20, "Here's a wild mix of dashes-connecting ideas in a jumble-making a merry mess-of words and thoughts-like a crazy puzzle-full of dashes-jumping around-just for fun!", "Here's a wild mix of\ndashes-connecting\nideas in a jumble-\nmaking a merry mess-\nof words and\nthoughts-like a\ncrazy puzzle-full of\ndashes-jumping\naround-just for fun!\n", 0); // multiple word portions broken at a hyphen to fit on an output line
+    testRender(6, "@P@ @P@ @P@\n\neric-chou\nhello\n@P@\nalsdjf-j--j\nsevens-fives\nhi fives\n\n\n@P@\nfives-bye\n\n\n", "eric-\nchou\nhello\n\nalsdjf\n-j--j\nsevens\n-fives\nhi\nfives\n\nfives-\nbye\n", 1); // multiple split word portions AND paragraph breaks
+    // Exceeds Maximum Line Length
+    testRender(5, "i'm rach-chan", "i'm\nrach-\nchan\n", 0); // overflow word with hyphen
+    testRender(6, "i'm rachchan", "i'm\nrachch\nan\n", 1); // overflow word without hyphen
+    testRender(6, "oopsiesdaises! my-bad", "oopsie\nsdaise\ns!\nmy-bad\n", 1); // overflow word includes punctuation
+    testRender(6, "crashlandingonyouisaveryverygoodshow", "crashl\nanding\nonyoui\nsavery\nverygo\nodshow\n", 1); // input line length is a multiple of the max line length
+    testRender(7, "crashlandingonyouisaveryverygoodshow", "crashla\nndingon\nyouisav\neryvery\ngoodsho\nw\n", 1); // input line length is not a multiple of max line length
     testRender(20, "@P@ @P@ @P@ @P@- -@P@World! -@P@ !-@P@ Hello-@P@-World.", "@P@- -@P@World!  -\n@P@ !-@P@ Hello-@P@-\nWorld.\n", 0); // overflow word has a hyphen and can be split into word portions
-    
-    // MARK: Exceeds Maximum Line Length
+    testRender(7, "zen-me-le- - ni-hao-bu-hao", "zen-me-\nle- -\nni-hao-\nbu-hao\n", 0); // word length exceeds maximum line length but word portion lengths do not (should split the word portions and NOT return 1)
+    // More Complex Test Cases
+    testRender(1, "h-i! @P@ ya-y!. @P@", "h\n-\ni\n!\n\ny\na\n-\ny\n!\n.\n", 1); // line length is 1
+    testRender(10, "!: . @P@ laj-jal3-ncl-  \neric-chou . . !@P@\n\n@P@  \n\n. -\n\n-- -.-?- \nhello-my-name-is-rachel-this-project-is-hard\n\n@P@ @P@ @P@\n\n", "!:  .\n\nlaj-jal3-\nncl- eric-\nchou .  .\n!@P@\n\n.  - -- -\n.-?-\nhello-my-\nname-is-\nrachel-\nthis-\nproject-\nis-hard\n", 0); // combination of punctuation, paragraph breaks, and hyphens
+    testRender(4, "forrestgump once-said life-is likea boxofchocolates", "forr\nestg\nump\nonce\n-\nsaid\nlife\n-is\nlike\na\nboxo\nfcho\ncola\ntes\n", 1); // combination of overflow words AND hyphens
+    testRender(20, "@P@ Once-upon a-time. . . -in-a- \n faraway? land: @P@ there--lived-a- curious-fox @P@ \n The-real--treasure- is- the adventures! you- embrace.", "Once-upon a-time.  .\n.  -in-a- faraway?\nland:\n\nthere--lived-a-\ncurious-fox\n\nThe-real--treasure-\nis- the adventures!\nyou- embrace.\n", 0); // combination of punctuation, paragraph breaks, hyphens, and new lines
+    testRender(37, "On-ce, a cu-ri-ous fox roa-med fa-ra-wa-y lands @P@ see-king ad-ven-tures. Am-id-st fo-re-sts and va-lle-ys, he st-umb-led up-on an an-ci-ent map @P@ ex-ci-te-ment sur-g-ed wit-hin. Off he das-h-ed, see-king hid-de-n trea-su-res mar-k-ed on the map @P@ thr-ou-gh tho-rny bu-sh-es and wi-nd-ing ri-ve-rs. His jou-rney led to a gli-mme-ring chest @P@ ea-ge-rly o-pe-ning it, he found not go-ld or ge-ms, but a no-te that re-ad, The re-al trea-su-re is the ad-ven-tu-res you e-mbra-ce. @P@ With a chu-ck-le, he re-al-iz-ed the tru-e va-lu-e of his jou-rney and co-nti-nu-ed ex-plor-ing the wo-rld with gle-e.", "On-ce, a cu-ri-ous fox roa-med fa-ra-\nwa-y lands\n\nsee-king ad-ven-tures.  Am-id-st fo-\nre-sts and va-lle-ys, he st-umb-led\nup-on an an-ci-ent map\n\nex-ci-te-ment sur-g-ed wit-hin.  Off\nhe das-h-ed, see-king hid-de-n trea-\nsu-res mar-k-ed on the map\n\nthr-ou-gh tho-rny bu-sh-es and wi-nd-\ning ri-ve-rs.  His jou-rney led to a\ngli-mme-ring chest\n\nea-ge-rly o-pe-ning it, he found not\ngo-ld or ge-ms, but a no-te that re-\nad, The re-al trea-su-re is the ad-\nven-tu-res you e-mbra-ce.\n\nWith a chu-ck-le, he re-al-iz-ed the\ntru-e va-lu-e of his jou-rney and co-\nnti-nu-ed ex-plor-ing the wo-rld with\ngle-e.\n", 0); // extra credit: long input line with over 250 characters
     
     // Emily's Test Cases
     testRender(10, "hello this is emily @P@ @P@ @P@ hehe", "hello this\nis emily\n\nhehe\n", 0);
@@ -358,8 +365,16 @@ int main(){
     assert(testRender(25, "asdf @P@@P@", "asdf @P@@P@\n", 0)); //only '@P@' is considered a break
     assert(testRender(15, "@P@-@P@", "@P@-@P@\n", 0)); //with hyphen
     assert(testRender(4, "@P@-@P@", "@P@-\n@P@\n", 0)); //breaks at hyphen but doesnt not paragraph break
+    assert(testRender(2, "as @P@ df", "as\n\ndf\n", 0)); //length less than length of break token
+    assert(testRender(15, "asdfasdfasdfasdfasdf", "asdfasdfasdfasd\nfasdf\n", 1)); //basic case
+    assert(testRender(4, "asdfasdfasdfasdfasdf", "asdf\nasdf\nasdf\nasdf\nasdf\n", 1)); //split to multiple lines
+    assert(testRender(4, "asdfasdfasdfasdfasdf", "asdf\nasdf\nasdf\nasdf\nasdf\n", 1)); //split to multiple lines
+    assert(testRender(5, "asdf-asdfasdf--asdf asdf", "asdf-\nasdfa\nsdf--\nasdf\nasdf\n", 1)); //with hyphens
+    assert(testRender(6, "asdf!-asdfasdf!-asdf asdf", "asdf!-\nasdfas\ndf!-\nasdf\nasdf\n", 1)); //with hyphens and punctuation
+    assert(testRender(15, "", "", 0)); //empty input
+    assert(testRender(15, "@P@ @P@ @P@", "", 0)); //only breaks
     assert(testRender(179, "asdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasd", "asdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasd\n", 0)); //179 character long token
-    assert(testRender(500, "It always does seem to me that I am doing more work than\nI should do. It is not that I object to the work, mind you;\nI like work: it fascinates me.       I can sit and look at it for hours.\nI love to keep     it by me: the idea of getting\nrid\nof it nearly breaks my heart. @P@ You cannot give me too\nmuch work; to accumulate work has almost become\n\n\na passion with me: my study is so full of it now, that there is hardly\nan inch of room for any more.", "It always does seem to me that I am doing more work than I should do.  It is not that I object to the work, mind you; I like work:  it fascinates me.  I can sit and look at it for hours.  I love to keep it by me:  the idea of getting rid of it nearly breaks my heart.\n\nYou cannot give me too much work; to accumulate work has almost become a passion with me:  my study is so full of it now, that there is hardly an inch of room for any more.\n", 0)); //long output line
+    assert(testRender(500, "It always does seem to me that I am doing more work than\nI should do. It is not that I object to the work, mind you;\nI like work: it fascinates me.       I can sit and look at it for hours.\nI love to keep     it by me: the idea of getting\nrid\nof it nearly breaks my heart. @P@ You cannot give me too\nmuch work; to accumulate work has almost become\n\n\na passion with me: my study is so full of it now, that there is hardly\nan inch of room for any more.", "It always does seem to me that I am doing more work than I should do.  It is not that I object to the work, mind you; I like work:  it fascinates me.  I can sit and look at it for hours.  I love to keep it by me:  the idea of getting rid of it nearly breaks my heart.\n\nYou cannot give me too much work; to accumulate work has almost become a passion with me:  my study is so full of it now, that there is hardly an inch of room for any more.\n", 0)); //long output line (EXTRA CREDIT CASE)
     
     cerr << "All tests complete!" << endl;
     return 0;
