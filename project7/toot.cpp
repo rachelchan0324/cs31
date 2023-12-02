@@ -1,12 +1,6 @@
 // toot.cpp
-
-// Portions you are to complete are marked with a TODO: comment.
-// We've provided some incorrect return statements (so indicated) just
-// to allow this skeleton program to compile and run, albeit incorrectly.
-// The first thing you probably want to do is implement the trivial
-// functions (marked TRIVIAL). Then get City::display going. That gives
-// you more flexibility in the order you tackle the rest of the functionality.
-// As you finish implementing each TODO: item, remove its TODO: comment.
+// Name: Rachel Chan
+// UID: 306280535
 
 #include <iostream>
 #include <string>
@@ -199,8 +193,7 @@ int Player::row() const {
     return m_row;
 }
 
-int Player::col() const
-{
+int Player::col() const {
     return m_col;
 }
 
@@ -437,7 +430,7 @@ void City::preachToTootersAroundPlayer() {
                 delete m_tooters[k];
                 m_nTooters--;
                 for(int j = k; j < m_nTooters; j++){
-                    m_tooters[k] = m_tooters[k+1];
+                    m_tooters[j] = m_tooters[j+1];
                 }
             }
         }
@@ -450,20 +443,10 @@ void City::moveTooters() {
     for (int k = 0; k < m_nTooters; k++) {
         m_tooters[k]->move();
         
-        int tootRow = m_tooters[k]->row();
-        int tootCol = m_tooters[k]->col();
-        
-        int playerRow = m_player->row();
-        int playerCol = m_player->col();
-        
         bool orthoAdjacent = false;
-        if(tootRow + 1 == playerRow && tootCol == playerCol)
+        if(abs(m_tooters[k]->row() -  m_player->row()) == 1 && m_tooters[k]->col() == m_player->col())
             orthoAdjacent = true;
-        if(tootRow - 1 == playerRow && tootCol == playerCol)
-            orthoAdjacent = true;
-        if(tootCol + 1 == playerCol && tootRow == playerRow)
-            orthoAdjacent = true;
-        if(tootCol - 1 == playerCol && tootRow == playerRow)
+        if(abs(m_tooters[k]->col() - m_player->col()) == 1 && m_tooters[k]->row() == m_player->row())
             orthoAdjacent = true;
             
         if(orthoAdjacent)
