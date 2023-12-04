@@ -206,7 +206,7 @@ int Player::health() const {
 }
 
 bool Player::isPassedOut() const {
-    if(m_health == 0)
+    if(m_health <= 0)
         return true;
     return false;
 }
