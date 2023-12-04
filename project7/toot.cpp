@@ -293,18 +293,26 @@ bool City::determineNewPosition(int& r, int& c, int dir) const {
         case UP:
             if(isInBounds(r - 1, c))
                r--;
+            else
+                return false;
             break;
         case DOWN:
             if(isInBounds(r + 1, c))
                 r++;
+            else
+                return false;
             break;
         case LEFT:
-            if(isInBounds(c - 1, r))
+            if(isInBounds(r, c - 1))
                 c--;
+            else
+                return false;
             break;
         case RIGHT:
-            if(isInBounds(c + 1, r))
+            if(isInBounds(r, c + 1))
                 c++;
+            else
+                return false;
             break;
         default:
             return false;
@@ -334,7 +342,7 @@ void City::display() const {
                 grid[r][c] = 'T';
             else if(nToots >= 2 && nToots <= 8 )
                 grid[r][c] = nToots + '0';
-            else if(nToots > 9)
+            else if(nToots >= 9)
                 grid[r][c] = '9';
         }
     }
@@ -423,10 +431,10 @@ void City::preachToTootersAroundPlayer() {
     // iterate through tooters
     for(int k = 0; k < m_nTooters; k++){
         // if a tooter position is orthogonally or diagonally adjacent
-        if(abs(m_tooters[k]->row() - m_player->row()) == 1 || abs(m_tooters[k]->col() - m_player->col()) == 1){
+        if(abs(m_tooters[k]->row() - m_player->row()) <= 1 && abs(m_tooters[k]->col() - m_player->col()) <= 1){
             // 2/3 probably of deleting the tooter
             if(randInt(1,3) != 3){
-                // delete the tooter and shift the
+                // delete the tooter and shift the tooter pointers
                 delete m_tooters[k];
                 m_nTooters--;
                 for(int j = k; j < m_nTooters; j++){
@@ -435,8 +443,6 @@ void City::preachToTootersAroundPlayer() {
             }
         }
     }
-    
-    // TODO: Implement this.
 }
 
 void City::moveTooters() {
