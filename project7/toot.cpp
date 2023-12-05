@@ -249,12 +249,10 @@ City::City(int nRows, int nCols) {
 }
 
 City::~City() {
-    cerr << "Entering City destructor" << endl;
     delete m_player ;
     for(int k = 0; k < m_nTooters; k++){
         delete m_tooters[k];
     }
-    cerr << "Leaving City destructor" << endl;
 }
 
 int City::rows() const {
@@ -335,16 +333,14 @@ void City::display() const {
     // If it's 2 though 8, set it to '2' through '8'.
     // For 9 or more, set it to '9'.
     
-    for(r = 0; r < rows(); r++){
-        for(c = 0; c < cols(); c++){
-            int nToots = nTootersAt(r + 1, c + 1);
-            if(nToots == 1)
-                grid[r][c] = 'T';
-            else if(nToots >= 2 && nToots <= 8 )
-                grid[r][c] = nToots + '0';
-            else if(nToots >= 9)
-                grid[r][c] = '9';
-        }
+    for(int k = 0; k < m_nTooters; k++){
+        char& gridChar = grid[m_tooters[k]->row()-1][m_tooters[k]->col()-1];
+        if(gridChar == '.')
+            gridChar = 'T';
+        else if(gridChar == 'T')
+            gridChar = '2';
+        else if(gridChar >= '2' && gridChar <= '8')
+            gridChar++;
     }
     
     // Indicate player's position
@@ -437,9 +433,9 @@ void City::preachToTootersAroundPlayer() {
                 // delete the tooter and shift the tooter pointers
                 delete m_tooters[k];
                 m_nTooters--;
-                for(int j = k; j < m_nTooters; j++){
+                for(int j = k; j < m_nTooters; j++)
                     m_tooters[j] = m_tooters[j+1];
-                }
+                k--;
             }
         }
     }
@@ -549,10 +545,10 @@ void Game::play() {
 
 int decodeDirection(char dir) {
     switch (dir) {
-    case 'u': return UP;
-    case 'd': return DOWN;
-    case 'l': return LEFT;
-    case 'r': return RIGHT;
+        case 'u': return UP;
+        case 'd': return DOWN;
+        case 'l': return LEFT;
+        case 'r': return RIGHT;
     }
     return -1; // bad argument passed in!
 }
@@ -567,6 +563,165 @@ int randInt(int min, int max) {
     return distro(generator);
 }
 
+#include <type_traits>
+#include <cassert>
+
+#define CHECKTYPE(c, f, r, a)  \
+    static_assert(std::is_same<decltype(&c::f), r (c::*)a>::value, \
+       "FAILED: You changed the type of " #c "::" #f);  \
+    { [[gnu::unused]] auto p = static_cast<r(c::*)a>(&c::f); }
+
+void thisFunctionWillNeverBeCalled()
+{
+      // If the student deleted or changed the interfaces to the public
+      // functions, this won't compile.  (This uses magic beyond the scope
+      // of CS 31.)
+
+    Tooter(static_cast<City*>(0), 1, 1);
+    CHECKTYPE(Tooter, row, int, () const);
+    CHECKTYPE(Tooter, col, int, () const);
+    CHECKTYPE(Tooter, move, void, ());
+
+    Player(static_cast<City*>(0), 1, 1);
+    CHECKTYPE(Player, row, int, () const);
+    CHECKTYPE(Player, col, int, () const);
+    CHECKTYPE(Player, age, int, () const);
+    CHECKTYPE(Player, health, int, () const);
+    CHECKTYPE(Player, isPassedOut, bool, () const);
+    CHECKTYPE(Player, preach, void, ());
+    CHECKTYPE(Player, move, void, (int));
+    CHECKTYPE(Player, getGassed, void, ());
+
+    City(1, 1);
+    CHECKTYPE(City, rows, int, () const);
+    CHECKTYPE(City, cols, int, () const);
+    CHECKTYPE(City, player, Player*, () const);
+    CHECKTYPE(City, isPlayerAt, bool, (int,int) const);
+    CHECKTYPE(City, tooterCount, int, () const);
+    CHECKTYPE(City, nTootersAt, int, (int,int) const);
+    CHECKTYPE(City, determineNewPosition, bool, (int&,int&,int) const);
+    CHECKTYPE(City, display, void, () const);
+    CHECKTYPE(City, addTooter, bool, (int,int));
+    CHECKTYPE(City, addPlayer, bool, (int,int));
+    CHECKTYPE(City, preachToTootersAroundPlayer, void, ());
+    CHECKTYPE(City, moveTooters, void, ());
+
+    Game(1, 1, 1);
+    CHECKTYPE(Game, play, void, ());
+}
+
+void doBasicTests()
+{
+    {
+        /* City walk(10, 20);
+        assert(walk.addPlayer(2, 6));
+        Player* pp = walk.player();
+        assert(walk.isPlayerAt(2, 6)  && ! pp->isPassedOut());
+        pp->move(UP);
+        assert(walk.isPlayerAt(1, 6)  && ! pp->isPassedOut());
+        pp->move(UP);
+        assert(walk.isPlayerAt(1, 6)  && ! pp->isPassedOut());
+        for (int k = 1; k <= 11; k++)
+            pp->getGassed();
+        assert(! pp->isPassedOut());
+        pp->getGassed();
+        assert(pp->isPassedOut()); */
+    }
+    {
+        /* City ofAngels(2, 2);
+        assert(ofAngels.addPlayer(1, 1));
+        assert(ofAngels.addTooter(2, 2));
+        Player* pp = ofAngels.player();
+        ofAngels.moveTooters();
+        assert( ! pp->isPassedOut());
+        for (int k = 0; k < 1000  && ! pp->isPassedOut(); k++)
+            ofAngels.moveTooters();
+        assert(pp->isPassedOut()); */
+    }
+    {
+        City ousDarth(2, 2);
+        assert(ousDarth.addPlayer(1, 1));
+        for (int k = 0; k < 50; k++)
+        {
+            assert(ousDarth.addTooter(1, 2));
+            assert(ousDarth.addTooter(2, 2));
+        }
+        ousDarth.preachToTootersAroundPlayer();
+        assert(ousDarth.nTootersAt(1, 1) == 0);
+        assert(ousDarth.nTootersAt(2, 1) == 0);
+        for (int r = 1; r <= 2; r++) {
+            // .9999 probability that between 5 and 29 out of 50 are unconverted
+            int n = ousDarth.nTootersAt(r, 2);
+            assert(n >= 5  &&  n <= 29);
+        }
+        int m = ousDarth.nTootersAt(1, 2);
+        ousDarth.addTooter(1, 2);
+        assert(ousDarth.nTootersAt(1, 2) == m+1);
+    }
+    {
+        /* City univer(5, 20);
+        univer.addPlayer(3, 3);
+        int r = 1;
+        int c = 1;
+        for (int k = 1; k <= 5*5; k++)
+        {
+            if (r != 3 || c != 3)
+                univer.addTooter(r, c);
+            if (r == 5)
+            {
+                r = c+1;
+                c = 5;
+            }
+            else if (c == 1)
+            {
+                c = r + 1;
+                r = 1;
+            }
+            else
+            {
+                c--;
+                r++;
+            }
+        }
+        assert(univer.tooterCount() == 24);
+        for (int k = 0; k < 1000  && univer.tooterCount() > 16; k++)
+            univer.preachToTootersAroundPlayer();
+        assert(univer.tooterCount() == 16);
+        for (int r = 1; r <= 5; r++)
+        {
+            for (int c = 1; c <= 5; c++)
+            {
+                int expected = 1;
+                if (r >= 2  &&  r <= 4  &&  c >= 2  &&  c <= 4)
+                    expected = 0;
+                assert(univer.nTootersAt(r, c) == expected);
+            }
+        }
+        univer.addTooter(3, 2);
+        assert(univer.tooterCount() == 17);
+          // If the program crashes after leaving this compound statement, you
+          // are probably messing something up when you delete a Tooter after
+          // it is converted (or you have mis-coded the destructor).
+          //
+          // Draw a picture of your m_tooters array before the Tooters are
+          // preached to and also note the values of m_nTooters or any other
+          // variables you might have that are involved with the number of
+          // Tooters.  Trace through your code step by step as the Tooters
+          // are preached to and removed, updating the picture according to
+          // what the code says, not what you want it to do.  If you don't see
+          // a problem then, try tracing through the destruction of the city.
+          //
+          // If you execute the code, use the debugger to check on the values
+          // of key variables at various points.  If you didn't try to learn
+          // to use the debugger, insert statements that write the values of
+          // key variables to cerr so you can trace the execution of your code
+          // and see the first place where something has gone amiss.  (Comment
+          // out the call to clearScreen in City::display so that your output
+          // doesn't disappear.) */
+    }
+    cout << "Passed all basic tests" << endl;
+}
+
 ///////////////////////////////////////////////////////////////////////////
 // main()
 ///////////////////////////////////////////////////////////////////////////
@@ -574,10 +729,14 @@ int randInt(int min, int max) {
 int main() {
     // Create a game
     // Use this instead to create a mini-game:   Game g(3, 4, 2);
-    Game g(7, 8, 25);
+    // Game g(7, 8, 25);
 
     // Play the game
-    g.play();
+    // g.play();
+    
+    doBasicTests(); // Remove this line after completing test.
+    return 0;       // Remove this line after completing test.
+
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -599,15 +758,15 @@ int main() {
 
 void clearScreen()
 {
- HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
- CONSOLE_SCREEN_BUFFER_INFO csbi;
- GetConsoleScreenBufferInfo(hConsole, &csbi);
- DWORD dwConSize = csbi.dwSize.X * csbi.dwSize.Y;
- COORD upperLeft = { 0, 0 };
- DWORD dwCharsWritten;
- FillConsoleOutputCharacter(hConsole, TCHAR(' '), dwConSize, upperLeft,
+    HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    GetConsoleScreenBufferInfo(hConsole, &csbi);
+    DWORD dwConSize = csbi.dwSize.X * csbi.dwSize.Y;
+    COORD upperLeft = { 0, 0 };
+    DWORD dwCharsWritten;
+    FillConsoleOutputCharacter(hConsole, TCHAR(' '), dwConSize, upperLeft,
           &dwCharsWritten);
- SetConsoleCursorPosition(hConsole, upperLeft);
+    SetConsoleCursorPosition(hConsole, upperLeft);
 }
 
 #else // not Windows
